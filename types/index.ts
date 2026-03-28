@@ -31,6 +31,7 @@ export interface AppState {
   
   // Actions
   setUserProfile: (profile: Partial<UserProfile>) => void;
+  resetJourneyWithNewGoal: (newGoal: string) => void;
   completeOnboarding: () => void;
   addMissions: (missions: Mission[]) => void;
   updateMissionProgress: (missionId: string, segmentIncrement: number, proofUri?: string) => void;

@@ -26,10 +26,11 @@ export async function generateDailyQuote(user: UserProfile, progress: number): P
         messages: [
           {
             role: 'system',
-            content: `${getPersonaPrompt(user)}\nProvide exactly ONE short motivational quote based on their goal "${user.goal}" and their current progress (${Math.round(progress)}%). Do not wrap in quotes.`
+            content: `CRITICAL: YOUR OUTPUT MUST BE EXACTLY ONE SINGLE SENTENCE. MAXIMUM 10 WORDS TOTAL.\n\n${getPersonaPrompt(user)}\nProvide ONE short motivational phrase based on their goal "${user.goal}" and progress (${Math.round(progress)}%). Do not wrap in quotes.`
           }
         ],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 25
       },
       { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
     );
@@ -53,10 +54,11 @@ export async function generateMissionAdvice(user: UserProfile, todayMissions: Mi
         messages: [
           {
             role: 'system',
-            content: `${getPersonaPrompt(user)}\nThe user's active missions for today are: ${missionTitles}. Provide a 2-sentence tactical advice or push specifically targeting how to execute these missions effectively today.`
+            content: `CRITICAL: YOUR OUTPUT MUST BE EXACTLY ONE SINGLE SENTENCE. MAXIMUM 15 WORDS TOTAL.\n\n${getPersonaPrompt(user)}\nThe user's active missions for today are: ${missionTitles}. Provide ONE extremely short tactical command targeting how to execute these missions.`
           }
         ],
-        temperature: 0.7
+        temperature: 0.7,
+        max_tokens: 30
       },
       { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
     );

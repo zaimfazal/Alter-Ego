@@ -26,6 +26,17 @@ export const useAppStore = create<AppState>()(
           userProfile: { ...state.userProfile, ...profile },
         })),
 
+      resetJourneyWithNewGoal: (newGoal: string) =>
+        set((state) => ({
+          userProfile: { ...state.userProfile, goal: newGoal },
+          startDate: new Date().toISOString(),
+          lastActiveDate: new Date().toISOString(),
+          streak: 1,
+          xpTotal: 0,
+          daysCompleted: 0,
+          missions: [],
+        })),
+
       completeOnboarding: () =>
         set({ 
           hasOnboarded: true, 

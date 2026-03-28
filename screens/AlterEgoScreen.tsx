@@ -10,7 +10,7 @@ type Message = {
 };
 
 export default function AlterEgoScreen() {
-  const { userProfile } = useAppStore();
+  const { userProfile, streak, xpTotal, missions, startDate } = useAppStore();
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: `CONNECTION ESTABLISHED. I AM WHO YOU BECOME WHEN YOU STOP MAKING EXCUSES.` }
   ]);
@@ -31,7 +31,16 @@ export default function AlterEgoScreen() {
       content: m.content 
     }));
 
-    const responseMsg = await chatWithAlterEgo(userProfile, apiHistory, userMsg.content);
+    const now = new Date();
+    const start = startDate ? new Date(startDate) : now;
+    now.setHours(0,0,0,0);
+    start.setHours(0,0,0,0);
+    const currentDay = Math.ceil(Math.abs(now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const todaysMissions = missions.filter(m => m.dayAssigned === currentDay && !m.completed).map(m => m.title).join(", ");
+    
+    const sysContext = `CURRENT STREAK: ${streak} days. XP: ${xpTotal}. UNCOMPLETED MISSIONS FOR TODAY: ${todaysMissions || 'None'}. If they have uncompleted missions, reprimand them if they complain.`;
+
+    const responseMsg = await chatWithAlterEgo(userProfile, apiHistory, userMsg.content, sysContext);
 
     setMessages(prev => [...prev, { 
       role: 'assistant', 
@@ -84,7 +93,7 @@ export default function AlterEgoScreen() {
           onSubmitEditing={handleSend}
         />
         <TouchableOpacity style={styles.sendButton} onPress={handleSend} disabled={loading || !input.trim()}>
-          <Text style={[styles.sendText, (!input.trim() || loading) && { color: COLORS.onSurfaceVariant }]}>TRANSMIT</Text>
+          <Text style={[styles.sendText, (!input.trim() || loading) && { color: COLORS.onSurfaceVariant }]}>SEND</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

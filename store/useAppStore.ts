@@ -91,16 +91,22 @@ export const useAppStore = create<AppState>()(
           const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 
           let newStreak = state.streak;
+          let newXpTotal = state.xpTotal;
           
           if (diffDays === 1) {
              newStreak += 1;
           } else if (diffDays > 1) {
              newStreak = 0; // Broke streak
+             // Punishment Mechanic: Lose 50 XP per day missed (beyond the 1 valid rest window)
+             const missedDays = diffDays - 1;
+             const penalty = missedDays * 50;
+             newXpTotal = Math.max(0, state.xpTotal - penalty); // Cannot drop below 0
           }
           
           return {
              lastActiveDate: new Date().toISOString(),
-             streak: newStreak
+             streak: newStreak,
+             xpTotal: newXpTotal
           };
         }),
         

@@ -125,21 +125,21 @@ No other text. Just JSON. Make sure to generate at least 1 mission per day up to
   }
 }
 
-export async function chatWithAlterEgo(user: UserProfile, history: any[], message: string): Promise<any> {
+export async function chatWithAlterEgo(user: UserProfile, history: any[], newMessage: string, sysContext: string = ''): Promise<any> {
   const apiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
   if (!apiKey) return { content: 'API KEY MISSING. SET EXPO_PUBLIC_GROQ_API_KEY.' };
   
   try {
     const systemPrompt = {
       role: 'system',
-      content: `${getPersonaPrompt(user)}\nFormat: Plain text. Do not use asterisks or emojis.`
+      content: `${getPersonaPrompt(user)}\nSYSTEM DATA: ${sysContext}\nFormat: Plain text. Do not use asterisks or emojis.`
     };
 
     const res = await axios.post(
       GROQ_API_URL,
       {
         model: 'llama-3.3-70b-versatile', // Large intelligence model for Chat
-        messages: [systemPrompt, ...history, { role: 'user', content: message }],
+        messages: [systemPrompt, ...history, { role: 'user', content: newMessage }],
         temperature: 0.8
       },
       { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }

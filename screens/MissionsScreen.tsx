@@ -5,6 +5,8 @@ import { COLORS, TYPOGRAPHY, SIZES } from '../constants/theme';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { Check, Lock, Camera } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { Calendar } from 'react-native-calendars';
 import { Mission } from '../types';
 
 export default function MissionsScreen() {
@@ -17,6 +19,28 @@ export default function MissionsScreen() {
   now.setHours(0,0,0,0);
   start.setHours(0,0,0,0);
   const currentDay = Math.ceil(Math.abs(now.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+  // Compute marked dates for Calendar
+  const markedDates: any = {};
+  if (startDate) {
+    for (let i = 0; i < Math.max(currentDay, 7); i++) {
+        const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayMissions = missions.filter(m => m.dayAssigned === i + 1);
+        
+        if (dayMissions.length > 0) {
+           const allCompleted = dayMissions.every(m => m.completed);
+           let dColor = COLORS.primaryFixed; // Default future/current color
+           if (i + 1 < currentDay) dColor = allCompleted ? COLORS.success : COLORS.error; // Past days
+           if (i + 1 === currentDay) dColor = allCompleted ? COLORS.success : COLORS.primaryFixed;
+           
+           markedDates[dateStr] = {
+              marked: true,
+              dotColor: dColor,
+           };
+        }
+    }
+  }
 
   // Group missions by Day Assigned
   const groupedMissions = missions.reduce((acc, mission) => {
@@ -38,27 +62,36 @@ export default function MissionsScreen() {
     if (mission.completed) return;
 
     if (mission.proofRequired) {
-      // Request Camera Permission
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('PERMISSION DENIED', 'Your Alter Ego requires camera access to verify proof of work.');
         return;
       }
 
-      // Launch Camera
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         quality: 0.5,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        updateMissionProgress(mission.id, mission.totalSegments, result.assets[0].uri);
-        triggerCompletion();
+        const tempUri = result.assets[0].uri;
+        const fileName = `proof_${mission.id}_${Date.now()}.jpg`;
+        const permanentUri = FileSystem.documentDirectory + fileName;
+        
+        try {
+           await FileSystem.copyAsync({
+             from: tempUri,
+             to: permanentUri
+           });
+           updateMissionProgress(mission.id, mission.totalSegments, permanentUri);
+           triggerCompletion();
+        } catch (e) {
+           Alert.alert('SYSTEM ERROR', 'Failed to securely store photographic proof.');
+        }
       } else {
          Alert.alert('EXCUSE REJECTED', 'You must capture proof to complete this mission.');
       }
     } else {
-       // Simple completion
        updateMissionProgress(mission.id, mission.totalSegments);
        triggerCompletion();
     }
@@ -71,7 +104,6 @@ export default function MissionsScreen() {
 
   const renderMission = ({ item, section }: { item: Mission, section: any }) => {
     const isLocked = section.dayNumber > currentDay;
-    const isToday = section.dayNumber === currentDay;
 
     return (
       <TouchableOpacity 
@@ -89,7 +121,6 @@ export default function MissionsScreen() {
         </View>
         <Text style={[styles.missionDesc, isLocked && styles.textLocked]}>{item.description}</Text>
         
-        {/* State Footer */}
         <View style={styles.footerRow}>
           {isLocked ? (
             <View style={styles.statusBadge}>
@@ -118,9 +149,32 @@ export default function MissionsScreen() {
     );
   };
 
+  const renderListHeader = () => (
+    <View style={styles.calendarContainer}>
+       <Text style={styles.calendarTitle}>OPERATIONAL TIMELINE</Text>
+       <Calendar
+         markedDates={markedDates}
+         theme={{
+            calendarBackground: COLORS.surfaceContainerLowest,
+            textSectionTitleColor: COLORS.onSurfaceVariant,
+            dayTextColor: COLORS.onSurface,
+            todayTextColor: COLORS.primaryFixed,
+            monthTextColor: COLORS.primaryFixed,
+            indicatorColor: COLORS.primaryFixed,
+            textDayFontFamily: TYPOGRAPHY.body,
+            textMonthFontFamily: TYPOGRAPHY.label,
+            textDayHeaderFontFamily: TYPOGRAPHY.label,
+            textMonthFontWeight: 'bold',
+            arrowColor: COLORS.primaryFixed,
+         }}
+       />
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <SectionList
+        ListHeaderComponent={renderListHeader}
         sections={sections}
         keyExtractor={(item) => item.id}
         renderItem={renderMission}
@@ -146,10 +200,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.surface },
   listContent: { padding: SIZES.lg, paddingBottom: 100 },
   
+  calendarContainer: {
+     backgroundColor: COLORS.surfaceContainerLowest,
+     padding: SIZES.sm,
+     marginBottom: SIZES.lg,
+     borderWidth: 1,
+     borderColor: COLORS.surfaceContainerHighest,
+  },
+  calendarTitle: {
+     fontFamily: TYPOGRAPHY.label,
+     color: COLORS.primaryFixed,
+     fontSize: SIZES.xs,
+     letterSpacing: 2,
+     marginBottom: SIZES.md,
+     marginLeft: SIZES.xs,
+  },
+
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: SIZES.xl,
+    marginTop: SIZES.md,
     marginBottom: SIZES.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.surfaceContainerHigh,
@@ -184,7 +254,7 @@ const styles = StyleSheet.create({
   },
   missionCardLocked: {
     opacity: 0.4,
-    backgroundColor: COLORS.surfaceContainer,
+    backgroundColor: COLORS.surfaceContainerLow,
   },
   
   missionHeader: {

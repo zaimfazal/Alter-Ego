@@ -1,6 +1,6 @@
 export interface UserProfile {
   name: string;
-  goal: string;
+  goals: string[];
   currentStatus: string;
   durationDays: number;
   aiMode: 'Aggressive' | 'Calm';
@@ -8,33 +8,42 @@ export interface UserProfile {
 
 export interface Mission {
   id: string;
-  dayAssigned: number; // The day this mission unlocks relative to start date
+  dayAssigned: number;
   title: string;
   description: string;
   xpValue: number;
   progress: number;
   totalSegments: number;
   completed: boolean;
-  proofRequired: boolean; // Whether the user NEEDS to use the camera
-  proofSubmitted?: string | null; // URI of the local image file
+  proofRequired: boolean;
+  proofSubmitted?: string | null;
+  isCustomHabit?: boolean; 
 }
 
 export interface AppState {
   hasOnboarded: boolean;
   userProfile: UserProfile;
-  startDate: string | null; // Tracks when the challenge started
+  customHabits: string[];
+  startDate: string | null;
   streak: number;
   xpTotal: number;
-  daysCompleted: number; // How many days fully cleared
+  daysCompleted: number;
   lastActiveDate: string | null;
   missions: Mission[];
+  restTokens: number;
+  activeRestDays: string[];
+  perfectDaysCount: number; // tracks consecutively completed days for token drops
   
   // Actions
   setUserProfile: (profile: Partial<UserProfile>) => void;
-  resetJourneyWithNewGoal: (newGoal: string) => void;
+  addGoal: (goal: string) => void;
+  removeGoal: (index: number) => void;
+  addCustomHabit: (habit: string) => void;
+  removeCustomHabit: (index: number) => void;
   completeOnboarding: () => void;
   addMissions: (missions: Mission[]) => void;
   updateMissionProgress: (missionId: string, segmentIncrement: number, proofUri?: string) => void;
   updateStatsOnDailyLogin: () => void;
-  completeDay: () => void;
+  useRestToken: (dateStr: string) => void;
+  replaceMission: (missionId: string, newMission: Mission) => void;
 }

@@ -21,7 +21,7 @@ export default function OnboardingScreen() {
 
     setUserProfile({ 
       name: name.trim(), 
-      goal: goal.trim(),
+      goals: [goal.trim()],
       currentStatus: currentStatus.trim(),
       durationDays: durationDays,
       aiMode: aiMode

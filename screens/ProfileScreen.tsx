@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { useAppStore } from '../store/useAppStore';
 import { COLORS, TYPOGRAPHY, SIZES } from '../constants/theme';
-import { Trophy, Activity, Edit2, Save, Check, History } from 'lucide-react-native';
+import { Trophy, Activity, Edit2, Save, Check, History, Trash2, Plus, ShieldAlert } from 'lucide-react-native';
 import { Mission } from '../types';
 
 if (Platform.OS === 'android') {
@@ -12,42 +12,19 @@ if (Platform.OS === 'android') {
 }
 
 export default function ProfileScreen() {
-  const { userProfile, missions, streak, xpTotal, setUserProfile, resetJourneyWithNewGoal } = useAppStore();
-  
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [draftGoal, setDraftGoal] = useState(userProfile.goal);
+  const { userProfile, customHabits, restTokens, missions, streak, xpTotal, perfectDaysCount, setUserProfile, addGoal, removeGoal, addCustomHabit, removeCustomHabit } = useAppStore();
   
   const [isEditingName, setIsEditingName] = useState(false);
   const [draftName, setDraftName] = useState(userProfile.name);
+
+  const [newGoal, setNewGoal] = useState('');
+  const [newHabit, setNewHabit] = useState('');
 
   // History Toggle
   const [historyExpanded, setHistoryExpanded] = useState(false);
 
   const completedMissions = missions.filter(m => m.completed);
   
-  const handleSaveGoal = () => {
-    if (draftGoal.trim() === userProfile.goal) {
-      setIsEditingGoal(false);
-      return;
-    }
-
-    Alert.alert(
-      "CONFIRM OVERRIDE",
-      "Changing your core vector will permanently reset your current active mission progress and wipe the board clean to start Day 1.",
-      [
-        { text: "CANCEL", style: "cancel" },
-        { 
-          text: "EXECUTE RESET", 
-          style: "destructive",
-          onPress: () => {
-             resetJourneyWithNewGoal(draftGoal.trim());
-             setIsEditingGoal(false);
-          }
-        }
-      ]
-    );
-  };
-
   const handleSaveName = () => {
     if (draftName.trim() !== userProfile.name && draftName.trim().length > 0) {
        setUserProfile({ name: draftName.trim() });
@@ -55,6 +32,20 @@ export default function ProfileScreen() {
        setDraftName(userProfile.name);
     }
     setIsEditingName(false);
+  };
+
+  const handleAddGoal = () => {
+    if (newGoal.trim()) {
+      addGoal(newGoal.trim());
+      setNewGoal('');
+    }
+  };
+
+  const handleAddHabit = () => {
+    if (newHabit.trim()) {
+      addCustomHabit(newHabit.trim());
+      setNewHabit('');
+    }
   };
 
   const toggleHistory = () => {
@@ -86,318 +77,192 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
       
-      {/* GOAL SECTION */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionHeader}>VECTOR \> PRIMARY GOAL</Text>
-          <TouchableOpacity onPress={isEditingGoal ? handleSaveGoal : () => setIsEditingGoal(true)}>
-             {isEditingGoal ? <Save color={COLORS.primaryFixed} size={16} /> : <Edit2 color={COLORS.onSurfaceVariant} size={16} />}
-          </TouchableOpacity>
-        </View>
-
-        {isEditingGoal ? (
-           <TextInput
-              style={styles.goalInput}
-              value={draftGoal}
-              onChangeText={setDraftGoal}
-              multiline
-              autoFocus
-              selectionColor={COLORS.primaryFixed}
-           />
-        ) : (
-           <Text style={styles.goalText}>{userProfile.goal}</Text>
-        )}
-      </View>
-
-      {/* COACHING MODE */}
-      <View style={styles.section}>
+      {/* AI TONE SECTION */}
+      <View style={[styles.section, {marginBottom: SIZES.lg}]}>
         <Text style={styles.sectionHeader}>AI COACHING PROTOCOL</Text>
-        <View style={styles.segmentContainer}>
-            <TouchableOpacity 
-              style={[styles.segmentBtn, userProfile.aiMode === 'Aggressive' && styles.segmentBtnActive]}
-              onPress={() => setUserProfile({ aiMode: 'Aggressive' })}
-            >
-              <Text style={[styles.segmentText, userProfile.aiMode === 'Aggressive' && styles.segmentTextActive]}>AGGRESSIVE</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.segmentBtn, userProfile.aiMode === 'Calm' && styles.segmentBtnActive]}
-              onPress={() => setUserProfile({ aiMode: 'Calm' })}
-            >
-              <Text style={[styles.segmentText, userProfile.aiMode === 'Calm' && styles.segmentTextActive]}>CALM</Text>
-            </TouchableOpacity>
+        <View style={styles.toggleRow}>
+           <TouchableOpacity 
+             style={[styles.toggleBtn, userProfile.aiMode === 'Aggressive' && styles.toggleActive]}
+             onPress={() => setUserProfile({ aiMode: 'Aggressive' })}
+           >
+              <Text style={[styles.toggleText, userProfile.aiMode === 'Aggressive' && styles.toggleTextActive]}>AGGRESSIVE</Text>
+           </TouchableOpacity>
+           <TouchableOpacity 
+             style={[styles.toggleBtn, userProfile.aiMode === 'Calm' && styles.toggleActive]}
+             onPress={() => setUserProfile({ aiMode: 'Calm' })}
+           >
+              <Text style={[styles.toggleText, userProfile.aiMode === 'Calm' && styles.toggleTextActive]}>CALM</Text>
+           </TouchableOpacity>
         </View>
-        <Text style={styles.modeSubtext}>
-          {userProfile.aiMode === 'Aggressive' 
-            ? "BRUTALIST TONE. NO EXCUSES ACCEPTED. HIGH ACCOUNTABILITY."
-            : "STOIC & RATIONAL. ENCOURAGING PROGRESS OVER PERFECTION."}
-        </Text>
       </View>
 
-      {/* STATS */}
-      <View style={styles.statsGrid}>
-        <View style={styles.statBox}>
-          <Activity color={COLORS.primaryFixed} size={20} />
-          <Text style={styles.statValue}>{streak}🔥</Text>
-          <Text style={styles.statLabel}>STREAK</Text>
+      {/* GOALS SECTION */}
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>PRIMARY OBJECTIVES</Text>
+        {userProfile.goals.map((g, index) => (
+           <View key={index} style={styles.listItem}>
+               <Text style={styles.listText}>{g}</Text>
+               <TouchableOpacity onPress={() => removeGoal(index)}>
+                  <Trash2 color={COLORS.error} size={18} />
+               </TouchableOpacity>
+           </View>
+        ))}
+        <View style={styles.addInputRow}>
+           <TextInput
+              style={styles.addInput}
+              placeholder="Add new objective..."
+              placeholderTextColor={COLORS.onSurfaceVariant}
+              value={newGoal}
+              onChangeText={setNewGoal}
+              onSubmitEditing={handleAddGoal}
+           />
+           <TouchableOpacity style={styles.addBtn} onPress={handleAddGoal}>
+              <Plus color={COLORS.primary} size={20} />
+           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* CUSTOM HABITS SECTION */}
+      <View style={styles.section}>
+        <Text style={styles.sectionHeader}>CORE CONSTANTS (DAILY)</Text>
+        {customHabits.map((h, index) => (
+           <View key={index} style={styles.listItem}>
+               <Activity color={COLORS.primaryFixed} size={14} style={{marginRight: 8}}/>
+               <Text style={styles.listText}>{h}</Text>
+               <TouchableOpacity onPress={() => removeCustomHabit(index)}>
+                  <Trash2 color={COLORS.error} size={18} />
+               </TouchableOpacity>
+           </View>
+        ))}
+        {customHabits.length === 0 && (
+           <Text style={styles.emptyText}>No core habits defined. AI will only focus on objectives.</Text>
+        )}
+        <View style={styles.addInputRow}>
+           <TextInput
+              style={styles.addInput}
+              placeholder="E.g. Drink 1 Gallon of Water"
+              placeholderTextColor={COLORS.onSurfaceVariant}
+              value={newHabit}
+              onChangeText={setNewHabit}
+              onSubmitEditing={handleAddHabit}
+           />
+           <TouchableOpacity style={styles.addBtn} onPress={handleAddHabit}>
+              <Plus color={COLORS.primary} size={20} />
+           </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* STATISTICS */}
+      <View style={styles.statsContainer}>
         <View style={styles.statBox}>
-           <Trophy color={COLORS.primaryFixed} size={20} />
+          <Trophy color={COLORS.primaryFixed} size={28} style={{ marginBottom: SIZES.sm }} />
           <Text style={styles.statValue}>{xpTotal}</Text>
-          <Text style={styles.statLabel}>TOTAL XP</Text>
+          <Text style={styles.statLabel}>LIFETIME XP</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Activity color={COLORS.primaryFixed} size={28} style={{ marginBottom: SIZES.sm }} />
+          <Text style={styles.statValue}>{streak}</Text>
+          <Text style={styles.statLabel}>DAY STREAK</Text>
+        </View>
+        <View style={styles.statBox}>
+          <ShieldAlert color={COLORS.primaryFixed} size={28} style={{ marginBottom: SIZES.sm }} />
+          <Text style={styles.statValue}>{restTokens}</Text>
+          <Text style={styles.statLabel}>REST TOKENS</Text>
         </View>
       </View>
 
-      {/* BADGES */}
-      <View style={styles.section}>
-        <Text style={styles.sectionHeader}>ACHIEVEMENT LOG (BADGES)</Text>
-        {xpTotal === 0 ? (
-          <Text style={styles.emptyText}>NO DATA. EXECUTE MISSIONS TO UNLOCK.</Text>
-        ) : (
-          <View style={styles.badgeRow}>
-            {xpTotal > 0 && <View style={styles.badge}><Text style={styles.badgeText}>INITIATE</Text></View>}
-            {xpTotal >= 500 && <View style={[styles.badge, {borderColor: COLORS.primaryFixed}]}><Text style={[styles.badgeText, {color: COLORS.primaryFixed}]}>GRINDER</Text></View>}
-            {streak >= 7 && <View style={[styles.badge, {borderColor: COLORS.success}]}><Text style={[styles.badgeText, {color: COLORS.success}]}>UNBREAKABLE</Text></View>}
-            {xpTotal >= 1500 && <View style={[styles.badge, {borderColor: COLORS.onSurface}]}><Text style={[styles.badgeText, {color: COLORS.onSurface}]}>VANGUARD</Text></View>}
-          </View>
-        )}
-      </View>
+      <Text style={[styles.emptyText, {textAlign: 'center', marginBottom: SIZES.xl}]}>
+         {7 - perfectDaysCount} perfect days until next Rest Token.
+      </Text>
 
-      {/* HABIT HISTORY */}
-      <View style={styles.section}>
-        <TouchableOpacity style={styles.historyHeaderRow} onPress={toggleHistory}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-               <History color={COLORS.onSurfaceVariant} size={16} />
-               <Text style={[styles.sectionHeader, {marginBottom: 0, marginLeft: SIZES.sm}]}>OPERATIONAL HISTORY</Text>
-            </View>
-            <Text style={styles.historyCount}>{completedMissions.length} COMPLETED</Text>
-        </TouchableOpacity>
-        
-        {historyExpanded && (
-          <View style={styles.historyList}>
+      {/* OPERATIONAL HISTORY LIST */}
+      <TouchableOpacity style={styles.historyHeader} onPress={toggleHistory} activeOpacity={0.8}>
+         <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <History color={COLORS.onSurfaceVariant} size={20} style={{marginRight: 8}}/>
+            <Text style={styles.sectionHeader}>OPERATIONAL HISTORY</Text>
+         </View>
+         <Text style={{color: COLORS.primaryFixed, fontFamily: TYPOGRAPHY.label}}>{completedMissions.length} COMPLETED</Text>
+      </TouchableOpacity>
+
+      {historyExpanded && (
+         <View style={styles.historyList}>
             {completedMissions.length === 0 ? (
-              <Text style={styles.emptyText}>YOUR RECORD IS EMPTY.</Text>
+               <Text style={styles.emptyText}>NO VERIFIED COMBAT LOGS FOUND.</Text>
             ) : (
-              completedMissions.map((mission: Mission, index: number) => (
-                <View key={index} style={styles.historyItem}>
-                  <Check color={COLORS.success} size={14} />
-                  <View style={styles.historyBody}>
-                     <Text style={styles.historyTitle}>{mission.title}</Text>
-                     <Text style={styles.historyDay}>Day 0{mission.dayAssigned} • +{mission.xpValue} XP</Text>
+               completedMissions.map(m => (
+                  <View key={m.id} style={styles.historyItem}>
+                     <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                        <Check color={COLORS.success} size={16} style={{marginRight: 8}} />
+                        <Text style={styles.historyTitle}>{m.title}</Text>
+                     </View>
+                     <Text style={styles.historyDate}>DAY {m.dayAssigned}</Text>
                   </View>
-                </View>
-              ))
+               )).reverse()
             )}
-          </View>
-        )}
-      </View>
-
+         </View>
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-  },
-  content: {
-    padding: SIZES.lg,
-    alignItems: 'center',
-    paddingBottom: 100,
-  },
+  container: { flex: 1, backgroundColor: COLORS.surface },
+  content: { padding: SIZES.lg, paddingTop: 60, paddingBottom: 100, alignItems: 'center' },
   avatarPlaceholder: {
-    width: 80,
-    height: 80,
-    backgroundColor: COLORS.surfaceContainerHighest,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: SIZES.xl,
-    marginBottom: SIZES.sm,
-    borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
-  },
-  avatarInitial: {
-    fontFamily: TYPOGRAPHY.display,
-    color: COLORS.onSurface,
-    fontSize: 40,
-  },
-  name: {
-    fontFamily: TYPOGRAPHY.display,
-    color: COLORS.primaryFixed,
-    fontSize: 24,
-    marginBottom: SIZES.xl,
-    letterSpacing: 2,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SIZES.sm,
-  },
-  nameInput: {
-    fontFamily: TYPOGRAPHY.display,
-    color: COLORS.primaryFixed,
-    fontSize: 24,
-    letterSpacing: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.primaryFixed,
-    textAlign: 'center',
-    marginBottom: SIZES.xl,
-    minWidth: 150,
-  },
-  section: {
-    width: '100%',
+    width: 80, height: 80, borderRadius: 0,
     backgroundColor: COLORS.surfaceContainerLow,
-    padding: SIZES.lg,
-    marginBottom: SIZES.lg,
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: SIZES.md, borderWidth: 2, borderColor: COLORS.primaryFixed,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SIZES.md,
-  },
-  sectionHeader: {
-    fontFamily: TYPOGRAPHY.label,
-    color: COLORS.primaryFixed,
-    fontSize: SIZES.xs,
-    letterSpacing: 1,
-  },
-  goalText: {
-    fontFamily: TYPOGRAPHY.body,
-    color: COLORS.onSurface,
-    lineHeight: 22,
-  },
-  goalInput: {
-    fontFamily: TYPOGRAPHY.body,
-    color: COLORS.primaryFixed,
-    backgroundColor: COLORS.surfaceContainerHighest,
-    padding: SIZES.md,
-    lineHeight: 22,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.primaryFixed,
-  },
-
-  segmentContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    borderWidth: 1,
-    borderColor: COLORS.surfaceContainerHighest,
-    marginBottom: SIZES.sm,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: SIZES.sm,
-    alignItems: 'center',
-  },
-  segmentBtnActive: {
-    backgroundColor: COLORS.primaryFixed,
-  },
-  segmentText: {
-    fontFamily: TYPOGRAPHY.label,
-    color: COLORS.onSurfaceVariant,
-    fontSize: SIZES.xs,
-    letterSpacing: 1,
-  },
-  segmentTextActive: {
-    color: COLORS.surface,
-  },
-  modeSubtext: {
-    fontFamily: TYPOGRAPHY.bodyMedium,
-    color: COLORS.onSurfaceVariant,
-    fontSize: 11,
-    marginTop: SIZES.xs,
-    fontStyle: 'italic',
-  },
-
-  statsGrid: {
-    flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-between',
-    marginBottom: SIZES.lg,
-  },
-  statBox: {
-    backgroundColor: COLORS.surfaceContainerLowest,
-    width: '48%',
-    padding: SIZES.md,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: COLORS.surfaceContainerHighest,
-  },
-  statValue: {
-    fontFamily: TYPOGRAPHY.display,
-    color: COLORS.onSurface,
-    fontSize: 32,
-    marginVertical: SIZES.xs,
-  },
-  statLabel: {
-    fontFamily: TYPOGRAPHY.label,
-    color: COLORS.onSurfaceVariant,
-    fontSize: 10,
-    letterSpacing: 0.5,
+  avatarInitial: { fontFamily: TYPOGRAPHY.display, fontSize: 40, color: COLORS.primaryFixed },
+  
+  nameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: SIZES.xl },
+  name: { fontFamily: TYPOGRAPHY.display, fontSize: 32, color: COLORS.onSurface },
+  nameInput: {
+    fontFamily: TYPOGRAPHY.display, fontSize: 32, color: COLORS.onSurface,
+    borderBottomWidth: 1, borderBottomColor: COLORS.primaryFixed, minWidth: 150, textAlign: 'center'
   },
   
-  badgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SIZES.sm,
+  section: { width: '100%', marginBottom: SIZES.xl },
+  sectionHeader: { fontFamily: TYPOGRAPHY.label, color: COLORS.onSurfaceVariant, fontSize: SIZES.sm, letterSpacing: 2, marginBottom: SIZES.sm },
+
+  listItem: {
+     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+     padding: SIZES.md, backgroundColor: COLORS.surfaceContainerLowest,
+     borderLeftWidth: 2, borderLeftColor: COLORS.primaryFixed,
+     marginBottom: SIZES.sm
   },
-  badge: {
-    borderWidth: 1,
-    borderColor: COLORS.outlineVariant,
-    paddingHorizontal: SIZES.md,
-    paddingVertical: 6,
-    borderRadius: 2,
-    backgroundColor: COLORS.surfaceContainerLowest,
+  listText: { fontFamily: TYPOGRAPHY.body, color: COLORS.onSurface, flex: 1 },
+  
+  addInputRow: { flexDirection: 'row', alignItems: 'center', marginTop: SIZES.xs },
+  addInput: {
+     flex: 1, backgroundColor: COLORS.surfaceContainerLow, padding: SIZES.md,
+     fontFamily: TYPOGRAPHY.body, color: COLORS.onSurface,
   },
-  badgeText: {
-    fontFamily: TYPOGRAPHY.label,
-    color: COLORS.onSurfaceVariant,
-    fontSize: SIZES.xs,
-    letterSpacing: 1,
-  },
-  emptyText: {
-    fontFamily: TYPOGRAPHY.label,
-    color: COLORS.onSurfaceVariant,
-    fontSize: SIZES.sm,
-    paddingVertical: SIZES.md,
+  addBtn: {
+     backgroundColor: COLORS.primaryFixed, padding: SIZES.md,
+     justifyContent: 'center', alignItems: 'center'
   },
 
-  historyHeaderRow: {
-     flexDirection: 'row',
-     justifyContent: 'space-between',
-     alignItems: 'center',
+  emptyText: { fontFamily: TYPOGRAPHY.body, color: COLORS.onSurfaceVariant, fontSize: SIZES.sm, fontStyle: 'italic', marginVertical: SIZES.sm },
+
+  statsContainer: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: SIZES.md },
+  statBox: {
+    backgroundColor: COLORS.surfaceContainerLowest, padding: SIZES.md,
+    alignItems: 'center', width: '31%', borderWidth: 1, borderColor: COLORS.surfaceContainerHighest,
   },
-  historyCount: {
-     fontFamily: TYPOGRAPHY.label,
-     color: COLORS.primaryFixed,
-     fontSize: 10,
-     letterSpacing: 1,
-  },
-  historyList: {
-    marginTop: SIZES.lg,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.surfaceContainerHighest,
-    paddingTop: SIZES.md,
-  },
-  historyItem: {
-     flexDirection: 'row',
-     alignItems: 'flex-start',
-     marginBottom: SIZES.md,
-  },
-  historyBody: {
-     marginLeft: SIZES.sm,
-     flex: 1,
-  },
-  historyTitle: {
-     fontFamily: TYPOGRAPHY.bodyMedium,
-     color: COLORS.onSurface,
-     fontSize: SIZES.sm,
-  },
-  historyDay: {
-     fontFamily: TYPOGRAPHY.label,
-     color: COLORS.onSurfaceVariant,
-     fontSize: 10,
-     marginTop: 4,
-  }
+  statValue: { fontFamily: TYPOGRAPHY.display, fontSize: 24, color: COLORS.onSurface, marginBottom: 4 },
+  statLabel: { fontFamily: TYPOGRAPHY.label, fontSize: 10, color: COLORS.onSurfaceVariant, letterSpacing: 1 },
+
+  toggleRow: { flexDirection: 'row', gap: SIZES.sm, marginTop: SIZES.xs },
+  toggleBtn: { flex: 1, padding: SIZES.md, backgroundColor: COLORS.surfaceContainerLowest, borderWidth: 1, borderColor: COLORS.surfaceContainerHigh, alignItems: 'center' },
+  toggleActive: { backgroundColor: COLORS.primaryFixed, borderColor: COLORS.primaryFixed },
+  toggleText: { fontFamily: TYPOGRAPHY.label, color: COLORS.onSurfaceVariant },
+  toggleTextActive: { color: COLORS.primary },
+
+  historyHeader: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: SIZES.md, borderBottomWidth: 1, borderBottomColor: COLORS.surfaceContainerHigh },
+  historyList: { width: '100%', marginTop: SIZES.md },
+  historyItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: SIZES.md, backgroundColor: COLORS.surfaceContainerLowest, marginBottom: 2 },
+  historyTitle: { fontFamily: TYPOGRAPHY.bodyMedium, color: COLORS.onSurfaceVariant, flex: 1 },
+  historyDate: { fontFamily: TYPOGRAPHY.label, color: COLORS.onSurfaceVariant, fontSize: 10 },
 });

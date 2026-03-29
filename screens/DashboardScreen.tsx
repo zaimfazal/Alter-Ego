@@ -37,8 +37,29 @@ export default function DashboardScreen() {
 
       if (!isWeekGenerated) {
         const newMissions = await generateDynamicMissions(userProfile, currentWeekNumber);
+        
+        const customMissions: Mission[] = [];
+        const { customHabits } = useAppStore.getState();
+        customHabits.forEach((habitTitle, idx) => {
+            for(let d = 1; d <= 7; d++) {
+               const dayNum = ((currentWeekNumber - 1) * 7) + d;
+               customMissions.push({
+                   id: `custom_${currentWeekNumber}_${dayNum}_${idx}`,
+                   dayAssigned: dayNum,
+                   title: habitTitle.toUpperCase(),
+                   description: "CORE OPERATION.",
+                   xpValue: 15, // Custom habits give less XP than AI tasks
+                   progress: 0,
+                   totalSegments: 1,
+                   completed: false,
+                   proofRequired: false,
+                   isCustomHabit: true
+               });
+            }
+        });
+
         if (newMissions.length > 0) {
-           addMissions(newMissions);
+           addMissions([...newMissions, ...customMissions]);
         }
       }
 
@@ -94,7 +115,11 @@ export default function DashboardScreen() {
         <View style={styles.progressBarBg}>
           <View style={[styles.progressBarFill, { width: `${progressPercentage}%` }]} />
         </View>
-        <Text style={styles.goalText}>"{userProfile.goal}"</Text>
+        <Text style={styles.goalText}>
+           {userProfile.goals.length > 0 
+             ? `"${userProfile.goals.join(' | ')}"` 
+             : "NO PRIMARY DIRECTIVE SET."}
+        </Text>
       </View>
 
       <View style={styles.transmissionBox}>

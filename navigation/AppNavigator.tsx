@@ -10,10 +10,11 @@ import DashboardScreen from '../screens/DashboardScreen';
 import MissionsScreen from '../screens/MissionsScreen';
 import AlterEgoScreen from '../screens/AlterEgoScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import AnalyticsScreen from '../screens/AnalyticsScreen';
 
 // Theme
 import { COLORS, TYPOGRAPHY } from '../constants/theme';
-import { Shield, Target, MessageSquare, User } from 'lucide-react-native';
+import { Shield, Target, MessageSquare, User, BarChart } from 'lucide-react-native';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -52,6 +53,13 @@ function MainTabs() {
         component={AlterEgoScreen} 
         options={{
           tabBarIcon: ({ color }) => <MessageSquare color={color} size={24} />
+        }}
+      />
+      <Tab.Screen 
+        name="Analytics" 
+        component={AnalyticsScreen} 
+        options={{
+          tabBarIcon: ({ color }) => <BarChart color={color} size={24} />
         }}
       />
       <Tab.Screen 

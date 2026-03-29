@@ -3,15 +3,11 @@ import { Mission, UserProfile } from '../types';
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-const getPersonaPrompt = (user: UserProfile) => {
+export const getPersonaPrompt = (user: UserProfile) => {
   if (user.aiMode === 'Calm') {
-    return `You are the user's Future Self who has achieved: "${user.goal}".
-Personality: Rational, calm, stoic, and highly supportive. You guide them patiently.
-Tone: Chill but motivating. Use clear, encouraging language. Constructive feedback only.`;
+    return `You are a calm, stoic, logical operational assistant. The user's name is ${user.name}. Their objectives are to: ${user.goals.join(' and ')}. Focus on sustainable, rational action. Never use exclamation marks. Be brief. Keep advice under 8 words.`;
   }
-  return `You are the user's Future Self who has achieved: "${user.goal}". 
-Personality: Egoistic, triggering, demanding, but ultimately motivating. You do not coddle. You demand excellence. 
-Tone: Brutalist, direct, no pleasantries. Use short sentences. Use all-caps for emphasis on weak behaviors.`;
+  return `You are an aggressive, brutal, uncompromising military-style commander. The user's name is ${user.name}. Their objectives are to: ${user.goals.join(' and ')}. Your job is to force them to stop making excuses. Yell at them. Be harsh. Keep advice under 8 words. Use all caps optionally.`;
 };
 
 export async function generateDailyQuote(user: UserProfile, progress: number): Promise<string> {
@@ -26,7 +22,7 @@ export async function generateDailyQuote(user: UserProfile, progress: number): P
         messages: [
           {
             role: 'system',
-            content: `CRITICAL: YOUR OUTPUT MUST BE EXACTLY ONE SINGLE SENTENCE. MAXIMUM 10 WORDS TOTAL.\n\n${getPersonaPrompt(user)}\nProvide ONE short motivational phrase based on their goal "${user.goal}" and progress (${Math.round(progress)}%). Do not wrap in quotes.`
+            content: `CRITICAL: YOUR OUTPUT MUST BE EXACTLY ONE SINGLE SENTENCE. MAXIMUM 10 WORDS TOTAL.\n\n${getPersonaPrompt(user)}\nProvide ONE short motivational phrase based on their goals "${user.goals.join(', ')}" and progress (${Math.round(progress)}%). Do not wrap in quotes.`
           }
         ],
         temperature: 0.7,
@@ -83,7 +79,7 @@ export async function generateDynamicMissions(user: UserProfile, weekNumber: num
         messages: [
           {
             role: 'system',
-            content: `Based on the user's goal: "${user.goal}" and current status: "${user.currentStatus}".
+            content: `Based on the user's goals: "${user.goals.join(', ')}" and current status: "${user.currentStatus}".
 Generate a mission roadmap for days ${startDay} through ${endDay} (A 7-day period).
 You can assign 1 to 3 missions per day.
 Output strictly as a JSON array of objects with these keys:
@@ -122,6 +118,47 @@ No other text. Just JSON. Make sure to generate at least 1 mission per day up to
   } catch (error) {
     console.error('generateDynamicMissions error', error);
     return [];
+  }
+}
+
+export async function regenerateSingleMission(user: UserProfile, oldMission: Mission): Promise<Partial<Mission> | null> {
+  const apiKey = process.env.EXPO_PUBLIC_GROQ_API_KEY;
+  if (!apiKey) return null;
+  
+  try {
+    const res = await axios.post(
+      GROQ_API_URL,
+      {
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          {
+            role: 'system',
+            content: `The user's objectives are: ${user.goals.join(', ')}. 
+The user rejected the following mission for Day ${oldMission.dayAssigned}: "${oldMission.title}" (${oldMission.description}).
+Generate exactly ONE alternative physical/mental mission to replace it. It must be of similar difficulty.
+CRITICAL: You MUST strictly return a single JSON object. DO NOT wrap the output in any formatting. Return raw JSON only with keys: "title", "description", "xpValue" (between 10-100), "totalSegments" (integer > 0), "proofRequired" (boolean).`
+          }
+        ],
+        temperature: 0.8
+      },
+      { headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' } }
+    );
+
+    let content = res.data.choices[0].message.content.trim();
+    if (content.startsWith('```json')) content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+    else if (content.startsWith('```')) content = content.replace(/```/g, '').trim();
+
+    const newObj = JSON.parse(content);
+    return {
+      title: newObj.title,
+      description: newObj.description,
+      xpValue: newObj.xpValue || 50,
+      totalSegments: newObj.totalSegments || 1,
+      proofRequired: newObj.proofRequired ?? true
+    };
+  } catch (error) {
+    console.error('regenerateSingleMission error', error);
+    return null;
   }
 }
 

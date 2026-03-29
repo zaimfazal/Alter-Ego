@@ -3,15 +3,17 @@ import { View, Text, StyleSheet, SectionList, TouchableOpacity, Alert, Image } f
 import { useAppStore } from '../store/useAppStore';
 import { COLORS, TYPOGRAPHY, SIZES } from '../constants/theme';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import { Check, Lock, Camera } from 'lucide-react-native';
+import { Check, Lock, Camera, RefreshCw } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Calendar } from 'react-native-calendars';
 import { Mission } from '../types';
+import { regenerateSingleMission } from '../api/openai';
 
 export default function MissionsScreen() {
-  const { missions, updateMissionProgress, startDate } = useAppStore();
+  const { userProfile, missions, activeRestDays, updateMissionProgress, startDate, replaceMission } = useAppStore();
   const [showConfetti, setShowConfetti] = useState(false);
+  const [loadingMissionId, setLoadingMissionId] = useState<string | null>(null);
 
   // Calculate current day
   const now = new Date();
@@ -30,9 +32,14 @@ export default function MissionsScreen() {
         
         if (dayMissions.length > 0) {
            const allCompleted = dayMissions.every(m => m.completed);
-           let dColor = COLORS.primaryFixed; // Default future/current color
-           if (i + 1 < currentDay) dColor = allCompleted ? COLORS.success : COLORS.error; // Past days
-           if (i + 1 === currentDay) dColor = allCompleted ? COLORS.success : COLORS.primaryFixed;
+           let dColor = COLORS.primaryFixed; 
+           
+           if (activeRestDays.includes(dateStr)) {
+              dColor = '#2196F3'; // Blue for Rest Days
+           } else {
+              if (i + 1 < currentDay) dColor = allCompleted ? COLORS.success : COLORS.error; 
+              if (i + 1 === currentDay) dColor = allCompleted ? COLORS.success : COLORS.primaryFixed;
+           }
            
            markedDates[dateStr] = {
               marked: true,
@@ -76,7 +83,7 @@ export default function MissionsScreen() {
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const tempUri = result.assets[0].uri;
         const fileName = `proof_${mission.id}_${Date.now()}.jpg`;
-        const permanentUri = FileSystem.documentDirectory + fileName;
+        const permanentUri = (FileSystem.documentDirectory || '') + fileName;
         
         try {
            await FileSystem.copyAsync({
@@ -102,8 +109,20 @@ export default function MissionsScreen() {
     setTimeout(() => setShowConfetti(false), 3000);
   };
 
+  const handleReroll = async (mission: Mission) => {
+    setLoadingMissionId(mission.id);
+    const newMissionData = await regenerateSingleMission(userProfile, mission);
+    if (newMissionData) {
+       replaceMission(mission.id, { ...mission, ...newMissionData } as Mission);
+    } else {
+       Alert.alert("COMS ERROR", "Failed to retrieve alternative objective.");
+    }
+    setLoadingMissionId(null);
+  };
+
   const renderMission = ({ item, section }: { item: Mission, section: any }) => {
     const isLocked = section.dayNumber > currentDay;
+    const canReroll = !isLocked && !item.completed && !item.isCustomHabit;
 
     return (
       <TouchableOpacity 
@@ -112,14 +131,25 @@ export default function MissionsScreen() {
           item.completed && styles.missionCardCompleted,
           isLocked && styles.missionCardLocked
         ]}
-        disabled={isLocked || item.completed}
+        disabled={isLocked || item.completed || loadingMissionId === item.id}
         onPress={() => handleCaptureProofAndComplete(item)}
       >
         <View style={styles.missionHeader}>
-          <Text style={[styles.missionTitle, isLocked && styles.textLocked]}>{item.title}</Text>
-          <Text style={[styles.xpPill, isLocked && styles.textLocked]}>{item.xpValue} XP</Text>
+          <Text style={[styles.missionTitle, isLocked && styles.textLocked]}>
+             {loadingMissionId === item.id ? "CALCULATING ALTERNATIVE..." : item.title}
+          </Text>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+             {canReroll && (
+                <TouchableOpacity onPress={() => handleReroll(item)} style={{marginRight: SIZES.sm}}>
+                   <RefreshCw size={16} color={COLORS.primaryFixed} />
+                </TouchableOpacity>
+             )}
+             <Text style={[styles.xpPill, isLocked && styles.textLocked]}>{item.xpValue} XP</Text>
+          </View>
         </View>
-        <Text style={[styles.missionDesc, isLocked && styles.textLocked]}>{item.description}</Text>
+        <Text style={[styles.missionDesc, isLocked && styles.textLocked]}>
+          {loadingMissionId === item.id ? "Transmitting new parameters from Central Server..." : item.description}
+        </Text>
         
         <View style={styles.footerRow}>
           {isLocked ? (

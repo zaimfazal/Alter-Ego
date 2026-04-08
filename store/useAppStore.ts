@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState, Mission, UserProfile } from '../types';
+import { syncUserDataFromBackend, updateDailyStatsOnBackend, updateProfileOnBackend } from '../api/backend.sync';
 
-export const useAppStore = create<AppState>()(
+export const useAppStore = create<AppState & { syncWithBackend: () => Promise<void> }>()(
   persist(
     (set, get) => ({
       hasOnboarded: false,
@@ -25,26 +26,60 @@ export const useAppStore = create<AppState>()(
       activeRestDays: [],
       perfectDaysCount: 0,
 
-      setUserProfile: (profile) => 
-        set((state) => ({ userProfile: { ...state.userProfile, ...profile } })),
+      syncWithBackend: async () => {
+        const data = await syncUserDataFromBackend();
+        if (data && data.profile) {
+          set((state) => ({
+            ...state,
+            streak: data.profile.streak ?? state.streak,
+            xpTotal: data.profile.xpTotal ?? state.xpTotal,
+            restTokens: data.profile.restTokens ?? state.restTokens,
+            perfectDaysCount: data.profile.perfectDaysCount ?? state.perfectDaysCount,
+            activeRestDays: data.profile.activeRestDays ?? state.activeRestDays,
+            lastActiveDate: data.profile.lastActiveDate ?? state.lastActiveDate,
+            userProfile: {
+              ...state.userProfile,
+              name: data.profile.name ?? state.userProfile.name,
+              goals: data.profile.goals ?? state.userProfile.goals,
+              aiMode: data.profile.aiMode ?? state.userProfile.aiMode,
+            },
+            customHabits: data.profile.customHabits ?? state.customHabits,
+          }));
+        }
+      },
+
+      setUserProfile: (profile) => {
+        set((state) => ({ userProfile: { ...state.userProfile, ...profile } }));
+        updateProfileOnBackend(profile); // Fire and forget quiet sync
+      },
       
       addGoal: (goal) => 
-        set((state) => ({ userProfile: { ...state.userProfile, goals: [...state.userProfile.goals, goal] } })),
+        set((state) => {
+          const newGoals = [...state.userProfile.goals, goal];
+          updateProfileOnBackend({ goals: newGoals });
+          return { userProfile: { ...state.userProfile, goals: newGoals } };
+        }),
         
       removeGoal: (index) => 
         set((state) => {
           const newGoals = [...state.userProfile.goals];
           newGoals.splice(index, 1);
+          updateProfileOnBackend({ goals: newGoals });
           return { userProfile: { ...state.userProfile, goals: newGoals } };
         }),
 
       addCustomHabit: (habit) => 
-        set((state) => ({ customHabits: [...state.customHabits, habit] })),
+        set((state) => {
+          const newHabits = [...state.customHabits, habit];
+          updateProfileOnBackend({ customHabits: newHabits });
+          return { customHabits: newHabits };
+        }),
 
       removeCustomHabit: (index) => 
         set((state) => {
           const newHabits = [...state.customHabits];
           newHabits.splice(index, 1);
+          updateProfileOnBackend({ customHabits: newHabits });
           return { customHabits: newHabits };
         }),
 
@@ -103,62 +138,20 @@ export const useAppStore = create<AppState>()(
           return state;
         }),
 
-      updateStatsOnDailyLogin: () => 
-        set((state) => {
-          if (!state.lastActiveDate) return state;
-
-          const today = new Date();
-          const lastActive = new Date(state.lastActiveDate);
-          
-          today.setHours(0,0,0,0);
-          lastActive.setHours(0,0,0,0);
-          
-          const diffTime = today.getTime() - lastActive.getTime();
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-
-          let newStreak = state.streak;
-          let newXpTotal = state.xpTotal;
-          let newRestTokens = state.restTokens;
-          let newPerfectCount = state.perfectDaysCount;
-          let newActiveRestDays = [...state.activeRestDays];
-          
-          if (diffDays === 1) {
-             newStreak += 1;
-             newPerfectCount += 1;
-             if (newPerfectCount >= 7) {
-                newRestTokens += 1;
-                newPerfectCount = 0;
-             }
-          } else if (diffDays > 1) {
-             const missedDays = diffDays - 1;
-             
-             // Check if we can auto-deploy rest tokens to save the streak
-             if (newRestTokens >= missedDays) {
-                newRestTokens -= missedDays;
-                // Add missed days to activeRestDays tracking array
-                for (let i = 1; i <= missedDays; i++) {
-                   const missedDate = new Date(lastActive.getTime() + i * 24 * 60 * 60 * 1000);
-                   newActiveRestDays.push(missedDate.toISOString().split('T')[0]);
-                }
-                newStreak += diffDays; // Streak maintained functionally
-             } else {
-                newStreak = 0; 
-                newPerfectCount = 0;
-                // Punishment Mechanic: Lose 50 XP per un-saved day missed
-             	const penalty = missedDays * 50;
-             	newXpTotal = Math.max(0, state.xpTotal - penalty);
-             }
-          }
-          
-          return {
-             lastActiveDate: new Date().toISOString(),
-             streak: newStreak,
-             xpTotal: newXpTotal,
-             restTokens: newRestTokens,
-             perfectDaysCount: newPerfectCount,
-             activeRestDays: newActiveRestDays
-          };
-        })
+      updateStatsOnDailyLogin: async () => {
+        const newProfile = await updateDailyStatsOnBackend();
+        if (newProfile) {
+          set((state) => ({
+            ...state,
+            streak: newProfile.streak ?? state.streak,
+            xpTotal: newProfile.xpTotal ?? state.xpTotal,
+            restTokens: newProfile.restTokens ?? state.restTokens,
+            perfectDaysCount: newProfile.perfectDaysCount ?? state.perfectDaysCount,
+            activeRestDays: newProfile.activeRestDays ?? state.activeRestDays,
+            lastActiveDate: newProfile.lastActiveDate ?? state.lastActiveDate,
+          }));
+        }
+      }
     }),
     {
       name: 'alter-ego-storage',

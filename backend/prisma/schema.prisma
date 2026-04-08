@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  GYM_OWNER
+  TRAINER
+  MEMBER
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  ENTERPRISE
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password_hash String
+  role          Role     @default(MEMBER)
+  profile       Json?    // Store flexible profile data
+  
+  // Relations
+  memberProfile Member?
+  trainerProfile Trainer?
+  ownedGyms     Gym[]     @relation("GymOwner")
+  missions      Mission[]
+  chats         PersonaChat[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Gym {
+  id               String           @id @default(uuid())
+  name             String
+  subscriptionTier SubscriptionTier @default(FREE)
+  apiKey           String?          @unique // Secure API key for gym-level integrations
+  
+  ownerId          String
+  owner            User             @relation("GymOwner", fields: [ownerId], references: [id])
+  
+  members          Member[]
+  trainers         Trainer[]
+  
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model Member {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  
+  gymId          String
+  gym            Gym      @relation(fields: [gymId], references: [id])
+  
+  assignedTrainerId String?
+  assignedTrainer   Trainer? @relation(fields: [assignedTrainerId], references: [id])
+  
+  status         String   @default("ACTIVE") // ACTIVE, INACTIVE, SUSPENDED
+  enrollmentDate DateTime @default(now())
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Trainer {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id])
+  
+  gymId          String
+  gym            Gym      @relation(fields: [gymId], references: [id])
+  
+  assignedMembers Member[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Mission {
+  id             String   @id @default(uuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  
+  date           DateTime @default(now()) // The day the mission is for
+  description    String
+  completed      Boolean  @default(false)
+  proofImageUrl  String?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model PersonaChat {
+  id                  String   @id @default(uuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id])
+  
+  personaType         String   // e.g., 'FUTURE_SELF', 'DRILL_SERGEANT'
+  conversationHistory Json     // Store array of messages { role, content, timestamp }
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}

@@ -1,0 +1,11 @@
+src/controllers/gym.controller.ts(39,16): error TS2322: Type 'string | string[]' is not assignable to type 'string | undefined'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/gym.controller.ts(61,16): error TS2322: Type 'string | string[]' is not assignable to type 'string | undefined'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/mission.controller.ts(71,65): error TS2322: Type 'string | string[]' is not assignable to type 'string | undefined'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/mission.controller.ts(78,16): error TS2322: Type 'string | string[]' is not assignable to type 'string | undefined'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/trainer.controller.ts(35,16): error TS2322: Type 'string | string[]' is not assignable to type 'string | undefined'.
+  Type 'string[]' is not assignable to type 'string'.
+src/controllers/trainer.controller.ts(44,45): error TS2339: Property 'user' does not exist on type '{ id: string; createdAt: Date; updatedAt: Date; userId: string; gymId: string; assignedTrainerId: string | null; status: string; enrollmentDate: Date; }'.
